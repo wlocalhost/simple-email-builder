@@ -1,0 +1,312 @@
+<transition name="fade">
+    <div id="email-builder" v-if="!loading">
+        <div class="email-builder-preview-actions" :class="{preview: preview}">
+            <div class="md-btn-group">
+                <button class="md-btn md-btn-danger" @click="preview = false">Close preview</button>
+                <button class="md-btn md-btn-success" v-if="hasChanges()" @click="saveEmailTemplate()">Save email</button>
+            </div>
+        </div>
+        <div class="email-builder-header" :class="{preview: preview}">
+            <div class="email-builder-header-actions">
+                <h2>Logo</h2>
+                <!--<div class="md-btn-group">-->
+                <!--<button class="md-btn md-btn-flat md-btn-flat-danger md-btn-small" :class="{disabled: currentLanguage == 'en'}" @click="changeLanguage('en')">En</button>-->
+                <!--<button class="md-btn md-btn-flat md-btn-flat-danger md-btn-small" :class="{disabled: currentLanguage == 'ru'}" @click="changeLanguage('ru')">Ru</button>-->
+                <!--</div>-->
+            </div>
+
+            <div class="email-builder-header-actions">
+                <div class="md-btn-group">
+                    <i class="actions md-icon material-icons close md-color-red-600" :class="{disabled: !currentElement.type}" title="Close email settings"
+                        @click="editElement()">close</i>
+                    <i class="actions md-icon material-icons save md-color-green-600" title="Save email" :class="{disabled: !hasChanges()}" @click="hasChanges() && saveEmailTemplate()">save</i>
+                    <i class="actions md-icon material-icons" title="Email settings" @click="editElement('emailSettings')">settings</i>
+                </div>
+
+                <div class="md-btn-group">
+                    <button class="md-btn md-btn-success" @click="previewEmail()">
+                    <i class="material-icons">remove_red_eye</i>
+                    Preview
+                </button>
+                    <button class="md-btn md-btn-primary" @click="importJson()">
+                    <i class="material-icons">undo</i>
+                    Import JSON
+                </button>
+                    <button class="md-btn md-btn-primary" @click="exportJson()">
+                    <i class="material-icons">redo</i>
+                    Export JSON
+                </button>
+                    <button class="md-btn md-btn-primary" @click="exportEmail()">
+                    <i class="material-icons">redo</i>
+                    Export HTML
+                </button>
+                </div>
+            </div>
+        </div>
+        <div class="email-builder-content">
+            <div class="md-card" :class="{preview: preview}">
+                <div class="md-card-content elements-list">
+                    <draggable :list="elements" :options="{group: { name: 'people', pull: 'clone', put: false }, sort: false, dragClass: 'drag-element'}" @start="onMove" @end="onMoveEnd" :clone="clone" element="ul" class="md-list md-list-addon" ref="elements">
+                        <li v-for="element in elements" :data-type="element.type">
+                            <div class="md-list-addon-element">
+                                <i class="material-icons" v-html="element.icon" :title="element.primary_head + '<br>' + element.second_head"></i>
+                            </div>
+                        </li>
+                    </draggable>
+                </div>
+            </div>
+            <div position-relative :class="{configured: !!currentElement.type, preview: preview}">
+                <div class="builder" :style="Email.emailSettings.options">
+                    <draggable class="email-container" :class="{empty: !Email.elements.length}" data-empty-template="Drag and drop elements here"
+                        :list="Email.elements" :options="{group: {name: 'people', put: true}, sort: true, handle: 'i.actions.move'}"
+                        @start="onMove" @end="onMoveEnd" ref="emailElements">
+                        <div class="builder-element" :class="{selected: currentElement.id == element.id}" v-for="element in Email.elements" :key="element.id" :id="element.id">
+                            <component :element="element" :readonly="preview" :is="element.component" @click.native="editElement(element.id)"></component>
+                            <i v-if="currentElement != element && element.type == 'video'" class="actions edit md-icon material-icons" @click="editElement(element.id)"
+                                title="Edit element">edit</i>
+                            <i class="actions delete md-icon material-icons" title="Delete element" @click="removeElement(element)">delete</i>
+                            <i class="actions clone md-icon material-icons" title="Clone element" @click="cloneElement(element)">content_copy</i>
+                            <i v-if="Email.elements.length > 1" title="Move element" class="actions move md-icon material-icons">drag_handle</i>
+                        </div>
+                    </draggable>
+                </div>
+            </div>
+            <div class="md-card" :class="{empty: !currentElement.type || preview}">
+                <div class="md-card-content">
+                    <form action="#" onsubmit="return false">
+                        <div v-for="(option, key, index) in currentElement.options" v-if="currentElement.type && currentElement.type != 'emailSettings'"
+                            class="email-builder-element-edit-field">
+
+                            <div v-if="key == 'html'" class="block-properties">
+                                <div class="form-row text-inputs">
+                                    <label for="builder_el_html" class="md-label">HTML Code here</label>
+                                    <textarea id="builder_el_html" style="height: 300px; resize: vertical" v-model="currentElement.options[key]" title="HTML Code"></textarea>
+                                </div>
+                            </div>
+
+                            <div v-if="key.indexOf('image') > -1" class="block-properties">
+                                <div class="form-row text-inputs">
+                                    <label for="builder_el_o_image_url" translate="builder_el_o_image_url"></label>
+                                    <div v-input-file-upload class="upload-image-container">
+                                        <div class="upload">
+                                            <div class="current-image">
+                                                <img :src="currentElement.options[key]" alt="" />
+                                            </div>
+                                            <div class="upload-image">
+                                                <p>Upload an image</p>
+                                                <a onclick="return false" href="#">Browse</a>
+                                            </div>
+                                            <div class="uploading">
+                                                <i class="material-icons icon-spin">hdr_strong</i>
+                                            </div>
+                                        </div>
+                                        <input type="text" class="image-path md-input" v-model="currentElement.options[key]" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div v-if="key == 'iframeVideo'" class="block-properties">
+                                <div class="form-row textarea">
+                                    <label for="builder_el_video" class="md-label">Iframe video code</label>
+                                    <input id="builder_el_video" type="text" class="md-input" placeholder="'<iframe ...></iframe>'" v-md-input v-model="currentElement.options[key]"
+                                    />
+                                </div>
+                            </div>
+
+                            <div v-if="key == 'fullWidth'" class="block-properties">
+                                <div class="form-row checkbox-inputs">
+                                    <input id="checkbox-1" type="checkbox" v-model="currentElement.options[key]" />
+                                    <label id="checkbox-1-custom" for="checkbox-1" aria-checked="false" role='checkbox' tabindex="0"></label>
+                                    <label id='yes' role="label" for="checkbox-1">Full Width?</label>
+                                </div>
+                            </div>
+
+                            <div v-if="key.substring(0, 5) == 'width'" class="block-properties">
+                                <div class="form-row text-inputs">
+                                    <label for="builder_el_o_width" class="md-label">Image Width</label>
+                                    <input id="builder_el_o_width" type="text" class="md-input" v-md-input v-model="currentElement.options[key]" />
+                                </div>
+                            </div>
+
+                            <div v-if="key == 'url'" class="block-properties">
+                                <div class="form-row text-inputs">
+                                    <label for="builder_el_o_url">URL</label>
+                                    <input id="builder_el_o_url" type="url" class="md-input" v-model="currentElement.options[key]" />
+                                </div>
+                            </div>
+
+                            <div v-if="key == 'align'" class="block-properties">
+                                <h3>Alignment</h3>
+                                <div class="form-row">
+                                    <div class="md-btn-group md-btn-group-justify">
+                                        <button type="button" class="md-btn md-btn-flat" :class="{'md-btn-primary': option == 'left', 'md-btn-flat-primary': option != 'left'}"
+                                            @click="currentElement.options[key] = 'left'">Left</button>
+                                        <button type="button" class="md-btn md-btn-flat" :class="{'md-btn-primary': option == 'center', 'md-btn-flat-primary': option != 'center'}"
+                                            @click="currentElement.options[key] = 'center'">Center</button>
+                                        <button type="button" class="md-btn md-btn-flat" :class="{'md-btn-primary': option == 'right', 'md-btn-flat-primary': option != 'right'}"
+                                            @click="currentElement.options[key] = 'right'">Right</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="block-properties" v-if="['title', 'subTitle'].indexOf(key) > -1 || key.search('altTag') > -1 || key == 'buttonText'">
+                                <div class="form-row text-inputs">
+                                    <label :for="key" class="md-label">{{ key | makeTitle }}</label>
+                                    <input :id="key" type="text" class="md-input" v-md-input v-model="currentElement.options[key]" />
+                                </div>
+                            </div>
+
+                             <div class="block-properties" v-if="key == 'links'">
+                                <h3>Social links</h3>
+                                <div class="form-row color-inputs">
+                                    <select class="md-input" id="network" @change="addSocialNetwork(currentElement.options.links, selectedNetwork)" v-model="selectedNetwork">
+                                        <option value="" selected disabled>Select network from list</option>
+                                        <option v-for="(link, key) in currentElement.options.links" v-if="!link.active" :value="key">{{key}}</option>
+                                    </select>
+                                </div>
+                                <div class="form-row text-inputs" v-for="(link, key) in currentElement.options.links" v-if="link.active">
+                                    <label :for="key">{{key | makeTitle}}</label>
+                                    <div class="social-links">
+                                        <i class="material-icons">insert_link</i>
+                                        <input type="text" :id="key" :value="link.link" />
+                                    </div>
+                                    <a href="#" onclick="return false" @click="link.active = false">Delete</a>
+                                </div>
+                            </div> 
+
+                            <div v-if="['padding', 'margin'].indexOf(key) > -1" class="block-properties">
+                                <h3>{{key | makeTitle}}</h3>
+                                <div class="form-row padding-inputs">
+                                    <label for="builder_el_o_top">Top</label>
+                                    <input id="builder_el_o_top" type="text" class="md-input" v-model="currentElement.options[key][0]">
+
+                                    <label for="builder_el_o_right">Right</label>
+                                    <input id="builder_el_o_right" type="text" class="md-input" v-model="currentElement.options[key][1]">
+                                </div>
+                                <div class="form-row padding-inputs">
+                                    <label for="builder_el_o_bottom">Bottom</label>
+                                    <input id="builder_el_o_bottom" type="text" class="md-input" v-model="currentElement.options[key][2]">
+
+                                    <label for="builder_el_o_left">Left</label>
+                                    <input id="builder_el_o_left" type="text" class="md-input" v-model="currentElement.options[key][3]">
+                                </div>
+                            </div>
+
+                            <div v-if="key == 'backgroundColor' || key == 'color' || key == 'buttonBackgroundColor'" class="block-properties">
+                                <div class="form-row text-inputs">
+                                    <label class="md-label" :for="key" v-if="key == 'backgroundColor'">Background color</label>
+                                    <label class="md-label" :for="key" v-if="key == 'color'">Text color</label>
+                                    <label class="md-label" :for="key" v-if="key == 'buttonBackgroundColor'">Button background color</label>
+                                    <div class="color-inputs">
+                                        <!-- <span>HEX #</span> -->
+                                        <color-picker :color="currentElement.options[key]" @update:color="color => currentElement.options[key] = color"></color-picker>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div v-if="key == 'border'" class="block-properties">
+                                <h3>Border</h3>
+                                <div class="form-row range-inputs">
+                                    <label for="border-size">Size</label>
+                                    <input type="range" min="0" max="20" id="border-size" v-model="currentElement.options[key]['size']">
+                                    <span>{{currentElement.options[key]['size']}}px</span>
+                                </div>
+                                <div class="form-row color-inputs">
+                                    <label for="border-style">Style</label>
+                                    <select class="md-input" id="border-style" v-model="currentElement.options[key]['style']">
+                                    <option v-for="option in currentElement.options[key]['styleOptions']" :value="option">{{option}}</option>
+                                </select>
+                                </div>
+                                <div class="form-row text-inputs">
+                                    <div class="color-inputs">
+                                         <span>Color</span> 
+                                        <color-picker :color="currentElement.options[key]['color']" @update:color="color => currentElement.options[key]['color'] = color"></color-picker>
+                                    </div>
+                                </div>
+                                <div class="form-row range-inputs" v-if="currentElement.options[key]['radius'] != undefined">
+                                    <label for="border-radius">Radius</label>
+                                    <input type="range" min="0" max="50" id="border-radius" v-model="currentElement.options[key]['radius']">
+                                    <span class="md-color-gray">{{currentElement.options[key]['radius']}}%</span>
+                                </div>
+                            </div>
+
+                            <div v-if="key.search('linkTo') > -1" class="block-properties">
+                                <h3>{{key | makeTitle}}</h3>
+                                <div class="form-row text-inputs">
+                                    <select class="md-input" id="link-to" v-model="currentElement.options[key]['type']">
+                                        <option v-for="option in currentElement.options[key]['typeOptions']" :value="option">{{option}}</option>
+                                    </select>
+                                </div>
+                                <div v-if="currentElement.options[key]['type'] !== 'none' && currentElement.options[key]['type'] === 'link'" class="form-row text-inputs link-to">
+                                    <i class="material-icons">insert_link</i>
+                                    <input id="link" required type="url" autofocus class="md-input" v-model="currentElement.options[key]['link']" />
+                                </div>
+                                <div v-if="currentElement.options[key]['type'] !== 'none' && currentElement.options[key]['type'] === 'email'" class="form-row text-inputs link-to">
+                                    <i class="material-icons">email</i>
+                                    <input id="link" required type="email" autofocus class="md-input" v-model="currentElement.options[key]['link']" />
+                                </div>
+                            </div>
+
+                            <div v-if="key == 'font'" class="block-properties">
+                                <h3>Font</h3>
+                                <div class="form-row range-inputs" v-if="currentElement.options[key]['size']">
+                                    <label for="font-size">Size</label>
+                                    <input type="range" min="10" max="40" id="font-size" v-model="currentElement.options[key]['size']">
+                                    <span>{{currentElement.options[key]['size']}}px</span>
+                                </div>
+                                <div class="form-row text-inputs" v-if="currentElement.options[key]['color']">
+                                    <!-- <label for="font-color">{{'color' | translate}}</label> -->
+                                    <div class="color-inputs">
+                                         <span>Color</span> 
+                                        <color-picker :color="currentElement.options[key]['color']" @update:color="color => currentElement.options[key]['color'] = color"></color-picker>
+                                    </div>
+                                </div>
+                                <div class="form-row color-inputs" v-if="currentElement.options[key]['weight']">
+                                    <label for="font-weight">Weight</label>
+                                    <select class="md-input" id="font-weight" v-model="currentElement.options[key]['weight']">
+                                        <option v-for="option in currentElement.options[key]['weightOptions']" :value="option">{{option}}</option>
+                                    </select>
+                                </div>
+                                <div class="form-row text-inputs" v-if="currentElement.options[key]['family']">
+                                    <label for="font-family">Family</label>
+                                    <select class="md-input" id="font-family" v-model="currentElement.options[key]['family']">
+                                        <option :style="{fontFamily: option}" v-for="option in currentElement.options[key]['familyOptions']" :value="option">{{option}}</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                        </div>
+                        <div v-if="currentElement.type && currentElement.type == 'emailSettings'" class="email-builder-element-edit-field">
+
+                            <div class="block-properties">
+                                <div class="form-row padding-inputs">
+                                    <label class="md-label" for="emailSettingsPaddingTop">Top</label>
+                                    <input id="emailSettingsPaddingTop" class="md-input" type="text" v-md-input v-model="currentElement.options.paddingTop">
+                                    <label class="md-label" for="emailSettingsPaddingLeft">Left</label>
+                                    <input id="emailSettingsPaddingLeft" class="md-input" type="text" v-md-input v-model="currentElement.options.paddingLeft">
+                                    <label class="md-label" for="emailSettingsPaddingBottom">Bottom</label>
+                                    <input id="emailSettingsPaddingBottom" type="text" class="md-input" v-md-input v-model="currentElement.options.paddingBottom">
+                                    <label class="md-label" for="emailSettingsPaddingRight">Right</label>
+                                    <input id="emailSettingsPaddingRight" type="text" class="md-input" v-md-input v-model="currentElement.options.paddingRight">
+                                </div>
+                            </div>
+
+                            <div class="block-properties">
+                                <div class="form-row color-inputs">
+                                    <div class="form-row text-inputs">
+                                        <label class="md-label">Background color</label>
+                                        <div class="color-inputs">
+                                            <span>HEX #</span>
+                                            <color-picker :color="currentElement.options.backgroundColor" @update:color="color => currentElement.options.backgroundColor = color"></color-picker>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</transition>

@@ -1,0 +1,14 @@
+{
+  "name": "angular-seed",
+  "description": "An Email builder based on jQuery and Vuejs",
+  "version": "2.0.0",
+  "license": "MIT",
+  "private": true,
+  "dependencies": {
+    "vue": "^2.1.10",
+    "alertifyjs": "^1.0.11",
+    "tinymce": "^4.5.2",
+    "vue.draggable": "^2.4.0",
+    "jquery-powertip": "^1.3.0"
+  }
+}

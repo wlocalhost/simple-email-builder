@@ -1,0 +1,29 @@
+{
+  "name": "jquery-email-builder",
+  "private": true,
+  "version": "2.0.1",
+  "description": "An Email builder based on jQuery and Vuejs",
+  "license": "MIT",
+  "devDependencies": {
+    "bower": "^1.7.7",
+    "gulp": "^3.9.1",
+    "gulp-clean-css": "^2.3.2",
+    "gulp-concat": "^2.6.1",
+    "gulp-htmlmin": "^3.0.0",
+    "gulp-inject": "^4.2.0",
+    "gulp-less": "^3.3.0",
+    "gulp-rename": "^1.2.2",
+    "gulp-uglify": "^2.0.0"
+  },
+  "scripts": {
+    "prestart": "npm install",
+    "dev": "./node_modules/.bin/gulp common_scripts && ./node_modules/.bin/gulp compile_less && node server.js 9000",
+    "start": "NODE_ENV=production node server.js"
+  },
+  "dependencies": {
+    "connect": "^3.5.0",
+    "cross-env": "^7.0.2",
+    "gulp-es6-transpiler": "^1.0.1",
+    "serve-static": "^1.11.1"
+  }
+}
